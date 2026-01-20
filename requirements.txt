@@ -1,0 +1,6 @@
+# No external dependencies required
+# Tkinter comes bundled with Python
+
+# If you need additional packages in the future, add them here:
+# matplotlib>=3.5.0  # For advanced charts (optional)
+# pillow>=9.0.0      # For image handling (optional)
