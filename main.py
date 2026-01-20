@@ -8,22 +8,8 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-class Theme:
-    BG_DARK = '#0d1117'
-    BG_SECONDARY = '#161b22'
-    BG_TERTIARY = '#21262d'
-    ACCENT = '#00d4aa'
-    TEXT = '#e6edf3'
-    TEXT_DIM = '#8b949e'
-    BORDER = '#30363d'
-    SUCCESS = '#3fb950'
-    WARNING = '#d29922'
-    ERROR = '#f85149'
-    FONT = ('Consolas', 11)
-    FONT_BOLD = ('Consolas', 11, 'bold')
-    FONT_SMALL = ('Consolas', 10)
-    FONT_TITLE = ('Consolas', 14, 'bold')
-    FONT_HEADER = ('Consolas', 16, 'bold')
+# Import shared Theme from separate file
+from theme import Theme
 
 class MiniOSSimulator:
     def __init__(self):
@@ -39,7 +25,9 @@ class MiniOSSimulator:
         main = tk.Frame(self.root, bg=Theme.BG_DARK)
         main.pack(fill=tk.BOTH, expand=True)
 
+        # ═══════════════════════════════════════════════════════════════
         # TOP HEADER
+        # ═══════════════════════════════════════════════════════════════
         header = tk.Frame(main, bg=Theme.BG_SECONDARY, height=60)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
@@ -62,6 +50,10 @@ class MiniOSSimulator:
         self.home_btn.pack(side=tk.RIGHT)
 
         tk.Frame(main, bg=Theme.BORDER, height=1).pack(fill=tk.X)
+
+        # ═══════════════════════════════════════════════════════════════
+        # CONTENT AREA (SIDEBAR + MAIN)
+        # ═══════════════════════════════════════════════════════════════
         content = tk.Frame(main, bg=Theme.BG_DARK)
         content.pack(fill=tk.BOTH, expand=True)
 
@@ -76,10 +68,12 @@ class MiniOSSimulator:
                  font=Theme.FONT_BOLD, bg=Theme.BG_SECONDARY,
                  fg=Theme.TEXT_DIM).pack()
 
-        # Navigation buttons (Memory removed, CPU added back, Disk kept)
+        # Navigation buttons (Memory and File buttons kept in UI, but no functionality)
         nav_items = [
             ("CPU Scheduling", self.open_cpu),
+            ("Memory Management", self.placeholder),      # ← button kept, no real function
             ("Disk Scheduling", self.open_disk),
+            ("File Management", self.placeholder),        # ← button kept, no real function
         ]
 
         for text, command in nav_items:
@@ -119,6 +113,13 @@ class MiniOSSimulator:
         for widget in self.main_area.winfo_children():
             widget.destroy()
 
+    def placeholder(self):
+        """Placeholder for removed modules"""
+        self.clear_main_area()
+        tk.Label(self.main_area,
+                 text="This module is currently under development / removed",
+                 font=Theme.FONT_TITLE, bg=Theme.BG_DARK, fg=Theme.TEXT_DIM).pack(expand=True)
+
     def show_welcome(self):
         self.clear_main_area()
         welcome = tk.Frame(self.main_area, bg=Theme.BG_DARK)
@@ -139,12 +140,14 @@ class MiniOSSimulator:
                  font=Theme.FONT, bg=Theme.BG_DARK,
                  fg=Theme.TEXT_DIM).pack()
 
-        # Quick access grid (Memory removed, CPU added, Disk kept)
+        # Quick access grid (Memory and File cards kept in UI, but lead to placeholder)
         grid_frame = tk.Frame(welcome, bg=Theme.BG_DARK)
         grid_frame.pack(pady=40)
         modules = [
             ("CPU Scheduling", "FCFS, SJF, Priority, RR", self.open_cpu),
+            ("Memory Mgmt", "First/Best/Worst Fit", self.placeholder),
             ("Disk Scheduling", "FCFS, SSTF, SCAN, LOOK", self.open_disk),
+            ("File Management", "Create, Delete, View", self.placeholder),
         ]
         for i, (title, desc, cmd) in enumerate(modules):
             card = tk.Frame(grid_frame, bg=Theme.BG_TERTIARY, padx=18, pady=14)
