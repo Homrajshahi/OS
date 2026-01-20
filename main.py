@@ -8,9 +8,6 @@ import sys
 import os
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
-# ═══════════════════════════════════════════════════════════════════
-# THEME CONFIGURATION
-# ═══════════════════════════════════════════════════════════════════
 class Theme:
     BG_DARK = '#0d1117'
     BG_SECONDARY = '#161b22'
@@ -42,9 +39,7 @@ class MiniOSSimulator:
         main = tk.Frame(self.root, bg=Theme.BG_DARK)
         main.pack(fill=tk.BOTH, expand=True)
 
-        # ═══════════════════════════════════════════════════════════════
         # TOP HEADER
-        # ═══════════════════════════════════════════════════════════════
         header = tk.Frame(main, bg=Theme.BG_SECONDARY, height=60)
         header.pack(fill=tk.X)
         header.pack_propagate(False)
@@ -67,10 +62,6 @@ class MiniOSSimulator:
         self.home_btn.pack(side=tk.RIGHT)
 
         tk.Frame(main, bg=Theme.BORDER, height=1).pack(fill=tk.X)
-
-        # ═══════════════════════════════════════════════════════════════
-        # CONTENT AREA (SIDEBAR + MAIN)
-        # ═══════════════════════════════════════════════════════════════
         content = tk.Frame(main, bg=Theme.BG_DARK)
         content.pack(fill=tk.BOTH, expand=True)
 
@@ -85,9 +76,9 @@ class MiniOSSimulator:
                  font=Theme.FONT_BOLD, bg=Theme.BG_SECONDARY,
                  fg=Theme.TEXT_DIM).pack()
 
-        # Navigation buttons (CPU and File removed)
+        # Navigation buttons (Memory removed, CPU added back, Disk kept)
         nav_items = [
-            ("Memory Management", self.open_memory),
+            ("CPU Scheduling", self.open_cpu),
             ("Disk Scheduling", self.open_disk),
         ]
 
@@ -148,11 +139,11 @@ class MiniOSSimulator:
                  font=Theme.FONT, bg=Theme.BG_DARK,
                  fg=Theme.TEXT_DIM).pack()
 
-        # Quick access grid (updated – only remaining modules)
+        # Quick access grid (Memory removed, CPU added, Disk kept)
         grid_frame = tk.Frame(welcome, bg=Theme.BG_DARK)
         grid_frame.pack(pady=40)
         modules = [
-            ("Memory Mgmt", "First/Best/Worst Fit", self.open_memory),
+            ("CPU Scheduling", "FCFS, SJF, Priority, RR", self.open_cpu),
             ("Disk Scheduling", "FCFS, SSTF, SCAN, LOOK", self.open_disk),
         ]
         for i, (title, desc, cmd) in enumerate(modules):
@@ -171,10 +162,10 @@ class MiniOSSimulator:
                             activeforeground=Theme.BG_DARK)
             btn.pack()
 
-    def open_memory(self):
+    def open_cpu(self):
         self.clear_main_area()
-        from memory_management import MemoryManagementGUI
-        MemoryManagementGUI(self.main_area)
+        from cpu_scheduling import CPUSchedulingGUI
+        CPUSchedulingGUI(self.main_area)
 
     def open_disk(self):
         self.clear_main_area()
