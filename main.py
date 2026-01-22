@@ -73,7 +73,7 @@ class MiniOSSimulator:
             ("CPU Scheduling", self.open_cpu),
             ("Memory Management", self.placeholder),      # ← button kept, no real function
             ("Disk Scheduling", self.open_disk),
-            ("File Management", self.placeholder),        # ← button kept, no real function
+            ("File Management", self.open_file_management),  # ← Updated to use real function
         ]
 
         for text, command in nav_items:
@@ -120,6 +120,12 @@ class MiniOSSimulator:
                  text="This module is currently under development / removed",
                  font=Theme.FONT_TITLE, bg=Theme.BG_DARK, fg=Theme.TEXT_DIM).pack(expand=True)
 
+    def open_file_management(self):
+        """Open File Management GUI"""
+        self.clear_main_area()
+        from file_management import FileManagementGUI
+        FileManagementGUI(self.main_area)
+
     def show_welcome(self):
         self.clear_main_area()
         welcome = tk.Frame(self.main_area, bg=Theme.BG_DARK)
@@ -147,7 +153,7 @@ class MiniOSSimulator:
             ("CPU Scheduling", "FCFS, SJF, Priority, RR", self.open_cpu),
             ("Memory Mgmt", "First/Best/Worst Fit", self.placeholder),
             ("Disk Scheduling", "FCFS, SSTF, SCAN, LOOK", self.open_disk),
-            ("File Management", "Create, Delete, View", self.placeholder),
+            ("File Management", "Create, Delete, View", self.open_file_management),  # ← Updated
         ]
         for i, (title, desc, cmd) in enumerate(modules):
             card = tk.Frame(grid_frame, bg=Theme.BG_TERTIARY, padx=18, pady=14)
