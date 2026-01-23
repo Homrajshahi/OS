@@ -1,7 +1,3 @@
-"""
-CPU Scheduling Module
-Implements FCFS, SJF, Priority, Round Robin with visualization
-"""
 import tkinter as tk
 from tkinter import ttk, messagebox
 from theme import Theme
@@ -15,7 +11,7 @@ class Process:
         self.priority = priority
         self.remaining = burst
         self.start_time = -1
-        self.finish_time = 0
+        self.completion_time = 0
         self.waiting_time = 0
         self.turnaround_time = 0
 
@@ -32,8 +28,8 @@ class CPUScheduler:
             p.start_time = time
             gantt.append((p.pid, time, time + p.burst))
             time += p.burst
-            p.finish_time = time
-            p.turnaround_time = p.finish_time - p.arrival
+            p.completion_time = time
+            p.turnaround_time = p.completion_time - p.arrival
             p.waiting_time = p.turnaround_time - p.burst
         return sorted_p, gantt
 
@@ -56,8 +52,8 @@ class CPUScheduler:
             gantt.append((current.pid, time, time + current.burst))
             time += current.burst
             current.remaining = 0
-            current.finish_time = time
-            current.turnaround_time = current.finish_time - current.arrival
+            current.completion_time = time
+            current.turnaround_time = current.completion_time - current.arrival
             current.waiting_time = current.turnaround_time - current.burst
             completed += 1
         return sorted_p, gantt
@@ -81,8 +77,8 @@ class CPUScheduler:
             gantt.append((current.pid, time, time + current.burst))
             time += current.burst
             current.remaining = 0
-            current.finish_time = time
-            current.turnaround_time = current.finish_time - current.arrival
+            current.completion_time = time
+            current.turnaround_time = current.completion_time - current.arrival
             current.waiting_time = current.turnaround_time - current.burst
             completed += 1
         return sorted_p, gantt
@@ -118,8 +114,8 @@ class CPUScheduler:
             if current.remaining > 0:
                 queue.append(current)
             else:
-                current.finish_time = time
-                current.turnaround_time = current.finish_time - current.arrival
+                current.completion_time = time
+                current.turnaround_time = current.completion_time - current.arrival
                 current.waiting_time = current.turnaround_time - current.burst
                 completed += 1
         return sorted_p, gantt
@@ -135,11 +131,9 @@ class CPUSchedulingGUI:
         main = tk.Frame(self.parent, bg=Theme.BG_DARK)
         main.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
-        # Header
         tk.Label(main, text="CPU Scheduling", font=Theme.FONT_TITLE,
                  bg=Theme.BG_DARK, fg=Theme.ACCENT).pack(anchor='w', pady=(0, 10))
 
-        # Input section
         input_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         input_frame.pack(fill=tk.X, pady=10)
 
@@ -170,12 +164,10 @@ class CPUSchedulingGUI:
                   padx=12, pady=5, cursor='hand2',
                   command=self.clear_all).pack(side=tk.LEFT, padx=5)
 
-        # Process list
         self.process_frame = tk.Frame(main, bg=Theme.BG_DARK)
         self.process_frame.pack(fill=tk.X, pady=10)
         self.update_process_list()
 
-        # Algorithm selection
         algo_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         algo_frame.pack(fill=tk.X, pady=10)
         self.algo_var = tk.StringVar(value="FCFS")
@@ -185,7 +177,6 @@ class CPUSchedulingGUI:
                            font=Theme.FONT, bg=Theme.BG_SECONDARY, fg=Theme.TEXT,
                            selectcolor=Theme.BG_TERTIARY).pack(side=tk.LEFT, padx=15)
 
-        # Quantum for RR
         tk.Label(algo_frame, text="Quantum:", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT, padx=(30, 5))
         self.quantum_entry = tk.Entry(algo_frame, width=6, font=Theme.FONT,
@@ -203,10 +194,9 @@ class CPUSchedulingGUI:
                                       highlightthickness=0)
         self.gantt_canvas.pack(fill=tk.X, pady=10)
 
-        # Results
         results_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         results_frame.pack(fill=tk.X)
-        tk.Label(results_frame, text="─── RESULTS ───", font=Theme.FONT_SMALL,
+        tk.Label(results_frame, text="RESULTS", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
 
         self.results_body = tk.Frame(results_frame, bg=Theme.BG_DARK)
@@ -334,7 +324,7 @@ class CPUSchedulingGUI:
 
         total_wt = 0
         total_tat = 0
-        header = ["PID", "Arrival", "Burst", "Priority", "Finish", "Waiting", "Turnaround"]
+        header = ["PID", "Arrival", "Burst", "Priority", "Completion", "Waiting", "Turnaround"]
         header_frame = tk.Frame(self.results_body, bg=Theme.BG_TERTIARY)
         header_frame.pack(fill=tk.X)
         for h in header:
@@ -344,7 +334,7 @@ class CPUSchedulingGUI:
         for p in processes:
             row = tk.Frame(self.results_body, bg=Theme.BG_DARK)
             row.pack(fill=tk.X)
-            values = [p.pid, p.arrival, p.burst, p.priority, p.finish_time,
+            values = [p.pid, p.arrival, p.burst, p.priority, p.completion_time,
                       p.waiting_time, p.turnaround_time]
             for v in values:
                 tk.Label(row, text=str(v), font=Theme.FONT,
