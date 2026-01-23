@@ -3,7 +3,7 @@
 
 A clean, terminal-inspired GUI application built with **Python & Tkinter** to simulate core **Operating System concepts** for educational purposes (5th Semester OS Mini Project).
 
-> ⚠️ This is **not a real operating system** — it's an educational simulation tool.
+> This is **not a real operating system** — it's an educational simulation tool.
 
 ## Features
 
