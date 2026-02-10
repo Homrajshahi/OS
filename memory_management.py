@@ -13,42 +13,64 @@ class MemoryBlock:
 class MemoryAllocator:
     @staticmethod
     def first_fit(blocks, process_size, process_id):
-        """Allocate to FIRST block that fits"""
-        for block in blocks:
+        """Allocate to FIRST block that fits, split remaining space"""
+        for i, block in enumerate(blocks):
             if not block.is_allocated and block.size >= process_size:
+                remaining = block.size - process_size
+                block.size = process_size
                 block.is_allocated = True
                 block.process_id = process_id
                 block.process_size = process_size
+                # Create new block for remaining space if any
+                if remaining > 0:
+                    new_block = MemoryBlock(remaining)
+                    blocks.insert(i + 1, new_block)
                 return True, block
         return False, None
     
     @staticmethod
     def best_fit(blocks, process_size, process_id):
-        """Allocate to SMALLEST block that fits"""
+        """Allocate to SMALLEST block that fits, split remaining space"""
         best = None
-        for block in blocks:
+        best_idx = -1
+        for i, block in enumerate(blocks):
             if not block.is_allocated and block.size >= process_size:
                 if best is None or block.size < best.size:
                     best = block
+                    best_idx = i
         if best:
+            remaining = best.size - process_size
+            best.size = process_size
             best.is_allocated = True
             best.process_id = process_id
             best.process_size = process_size
+            # Create new block for remaining space if any
+            if remaining > 0:
+                new_block = MemoryBlock(remaining)
+                blocks.insert(best_idx + 1, new_block)
             return True, best
         return False, None
     
     @staticmethod
     def worst_fit(blocks, process_size, process_id):
-        """Allocate to LARGEST block that fits"""
+        """Allocate to LARGEST block that fits, split remaining space"""
         worst = None
-        for block in blocks:
+        worst_idx = -1
+        for i, block in enumerate(blocks):
             if not block.is_allocated and block.size >= process_size:
                 if worst is None or block.size > worst.size:
                     worst = block
+                    worst_idx = i
         if worst:
+            remaining = worst.size - process_size
+            worst.size = process_size
             worst.is_allocated = True
             worst.process_id = process_id
             worst.process_size = process_size
+            # Create new block for remaining space if any
+            if remaining > 0:
+                new_block = MemoryBlock(remaining)
+                blocks.insert(worst_idx + 1, new_block)
             return True, worst
         return False, None
 
@@ -60,15 +82,55 @@ class MemoryManagementGUI:
         self.setup_ui()
         
     def setup_ui(self):
-        main = tk.Frame(self.parent, bg=Theme.BG_DARK)
-        main.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Outer container for scrolling
+        outer = tk.Frame(self.parent, bg=Theme.BG_DARK)
+        outer.pack(fill=tk.BOTH, expand=True)
+        
+        # Scrollable canvas (no visible scrollbar)
+        self.scroll_canvas = tk.Canvas(outer, bg=Theme.BG_DARK, highlightthickness=0)
+        self.scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Main content frame inside canvas
+        main = tk.Frame(self.scroll_canvas, bg=Theme.BG_DARK)
+        self.scroll_canvas.create_window((0, 0), window=main, anchor="nw", tags="main_frame")
+        
+        # Bind mouse wheel scrolling
+        def on_mousewheel(event):
+            self.scroll_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        def on_scroll_up(event):
+            self.scroll_canvas.yview_scroll(-1, "units")
+        def on_scroll_down(event):
+            self.scroll_canvas.yview_scroll(1, "units")
+        
+        self.scroll_canvas.bind("<MouseWheel>", on_mousewheel)
+        self.scroll_canvas.bind("<Button-4>", on_scroll_up)
+        self.scroll_canvas.bind("<Button-5>", on_scroll_down)
+        
+        def bind_scroll_to_children(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            widget.bind("<Button-4>", on_scroll_up)
+            widget.bind("<Button-5>", on_scroll_down)
+            for child in widget.winfo_children():
+                bind_scroll_to_children(child)
+        
+        def update_scroll_region(event=None):
+            self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
+            self.scroll_canvas.itemconfig("main_frame", width=self.scroll_canvas.winfo_width())
+            bind_scroll_to_children(main)
+        
+        main.bind("<Configure>", update_scroll_region)
+        self.scroll_canvas.bind("<Configure>", lambda e: self.scroll_canvas.itemconfig("main_frame", width=e.width))
+
+        # Add padding inside main
+        content = tk.Frame(main, bg=Theme.BG_DARK)
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
         
         # Header
-        tk.Label(main, text="Memory Management", font=Theme.FONT_TITLE,
+        tk.Label(content, text="Memory Management", font=Theme.FONT_TITLE,
                  bg=Theme.BG_DARK, fg=Theme.ACCENT).pack(anchor='w', pady=(0, 10))
         
         # Initialize Memory Section
-        init_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        init_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         init_frame.pack(fill=tk.X, pady=10)
         
         tk.Label(init_frame, text="─── MEMORY SETUP ───", font=Theme.FONT_SMALL,
@@ -100,12 +162,12 @@ class MemoryManagementGUI:
                   command=self.clear_all).pack(side=tk.LEFT, padx=5)
         
         # Memory blocks display
-        self.blocks_frame = tk.Frame(main, bg=Theme.BG_DARK)
+        self.blocks_frame = tk.Frame(content, bg=Theme.BG_DARK)
         self.blocks_frame.pack(fill=tk.X, pady=10)
         self.update_blocks_display()
         
         # Process allocation section
-        alloc_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        alloc_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         alloc_frame.pack(fill=tk.X, pady=10)
         
         tk.Label(alloc_frame, text="─── ALLOCATE PROCESS ───", font=Theme.FONT_SMALL,
@@ -136,8 +198,8 @@ class MemoryManagementGUI:
                   command=self.allocate_process).pack(side=tk.RIGHT)
         
         # Visualization canvas
-        viz_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
-        viz_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        viz_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        viz_frame.pack(fill=tk.X, pady=10)
         
         tk.Label(viz_frame, text="─── MEMORY MAP ───", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
@@ -189,7 +251,14 @@ class MemoryManagementGUI:
                      font=Theme.FONT_SMALL, bg=Theme.BG_DARK, fg=Theme.TEXT_DIM).pack()
             return
         
-        text = "Memory Blocks: " + " | ".join([f"{b.size}KB" for b in self.blocks])
+        # Show block sizes with allocation status
+        block_texts = []
+        for b in self.blocks:
+            if b.is_allocated:
+                block_texts.append(f"{b.size}KB ({b.process_id})")
+            else:
+                block_texts.append(f"{b.size}KB")
+        text = "Memory Blocks: " + " | ".join(block_texts)
         tk.Label(self.blocks_frame, text=text, font=Theme.FONT,
                  bg=Theme.BG_DARK, fg=Theme.TEXT).pack(anchor='w')
     
@@ -218,6 +287,7 @@ class MemoryManagementGUI:
         
         if success:
             self.process_counter += 1
+            self.update_blocks_display()  # Update display to show new block structure
             self.draw_memory()
             self.update_stats()
             messagebox.showinfo("Success", f"{process_id} allocated ({size}KB) using {algo}")
@@ -259,12 +329,12 @@ class MemoryManagementGUI:
     
     def update_stats(self):
         total = sum(b.size for b in self.blocks)
-        allocated = sum(b.process_size for b in self.blocks if b.is_allocated)
-        free = total - allocated
-        fragmentation = sum(b.size - b.process_size for b in self.blocks if b.is_allocated)
+        allocated = sum(b.size for b in self.blocks if b.is_allocated)
+        free = sum(b.size for b in self.blocks if not b.is_allocated)
+        num_free_blocks = sum(1 for b in self.blocks if not b.is_allocated)
         
         self.stats_label.config(
-            text=f"Total: {total}KB | Allocated: {allocated}KB | Free: {free}KB | Internal Fragmentation: {fragmentation}KB"
+            text=f"Total: {total}KB | Allocated: {allocated}KB | Free: {free}KB ({num_free_blocks} blocks)"
         )
 
 def open_memory(parent_frame):

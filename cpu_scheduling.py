@@ -128,13 +128,53 @@ class CPUSchedulingGUI:
         self.setup_ui()
 
     def setup_ui(self):
-        main = tk.Frame(self.parent, bg=Theme.BG_DARK)
-        main.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Outer container for scrolling
+        outer = tk.Frame(self.parent, bg=Theme.BG_DARK)
+        outer.pack(fill=tk.BOTH, expand=True)
+        
+        # Scrollable canvas (no visible scrollbar)
+        self.scroll_canvas = tk.Canvas(outer, bg=Theme.BG_DARK, highlightthickness=0)
+        self.scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Main content frame inside canvas
+        main = tk.Frame(self.scroll_canvas, bg=Theme.BG_DARK)
+        self.scroll_canvas.create_window((0, 0), window=main, anchor="nw", tags="main_frame")
+        
+        # Bind mouse wheel scrolling
+        def on_mousewheel(event):
+            self.scroll_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        def on_scroll_up(event):
+            self.scroll_canvas.yview_scroll(-1, "units")
+        def on_scroll_down(event):
+            self.scroll_canvas.yview_scroll(1, "units")
+        
+        self.scroll_canvas.bind("<MouseWheel>", on_mousewheel)
+        self.scroll_canvas.bind("<Button-4>", on_scroll_up)
+        self.scroll_canvas.bind("<Button-5>", on_scroll_down)
+        
+        def bind_scroll_to_children(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            widget.bind("<Button-4>", on_scroll_up)
+            widget.bind("<Button-5>", on_scroll_down)
+            for child in widget.winfo_children():
+                bind_scroll_to_children(child)
+        
+        def update_scroll_region(event=None):
+            self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
+            self.scroll_canvas.itemconfig("main_frame", width=self.scroll_canvas.winfo_width())
+            bind_scroll_to_children(main)
+        
+        main.bind("<Configure>", update_scroll_region)
+        self.scroll_canvas.bind("<Configure>", lambda e: self.scroll_canvas.itemconfig("main_frame", width=e.width))
 
-        tk.Label(main, text="CPU Scheduling", font=Theme.FONT_TITLE,
+        # Add padding inside main
+        content = tk.Frame(main, bg=Theme.BG_DARK)
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+
+        tk.Label(content, text="CPU Scheduling", font=Theme.FONT_TITLE,
                  bg=Theme.BG_DARK, fg=Theme.ACCENT).pack(anchor='w', pady=(0, 10))
 
-        input_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        input_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         input_frame.pack(fill=tk.X, pady=10)
 
         labels = ["Arrival Time:", "Burst Time:", "Priority:"]
@@ -164,11 +204,11 @@ class CPUSchedulingGUI:
                   padx=12, pady=5, cursor='hand2',
                   command=self.clear_all).pack(side=tk.LEFT, padx=5)
 
-        self.process_frame = tk.Frame(main, bg=Theme.BG_DARK)
+        self.process_frame = tk.Frame(content, bg=Theme.BG_DARK)
         self.process_frame.pack(fill=tk.X, pady=10)
         self.update_process_list()
 
-        algo_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        algo_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         algo_frame.pack(fill=tk.X, pady=10)
         self.algo_var = tk.StringVar(value="FCFS")
         algorithms = ["FCFS", "SJF", "Priority", "Round Robin"]
@@ -190,20 +230,30 @@ class CPUSchedulingGUI:
                   command=self.run_simulation).pack(side=tk.RIGHT, padx=10)
 
         # Gantt Chart
-        self.gantt_canvas = tk.Canvas(main, height=100, bg=Theme.BG_DARK,
+        self.gantt_canvas = tk.Canvas(content, height=100, bg=Theme.BG_DARK,
                                       highlightthickness=0)
         self.gantt_canvas.pack(fill=tk.X, pady=10)
 
-        results_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        results_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         results_frame.pack(fill=tk.X)
-        tk.Label(results_frame, text="RESULTS", font=Theme.FONT_SMALL,
-                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
+        
+        # Header and averages in a fixed row
+        results_header = tk.Frame(results_frame, bg=Theme.BG_SECONDARY)
+        results_header.pack(fill=tk.X)
+        tk.Label(results_header, text="RESULTS", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT)
+        
+        # Average times - always visible on the right
+        self.avg_label = tk.Label(results_header, text="", font=('Consolas', 11, 'bold'),
+                                  bg=Theme.BG_DARK, fg=Theme.SUCCESS, padx=15, pady=5)
+        self.avg_label.pack(side=tk.RIGHT, padx=10)
 
-        self.results_body = tk.Frame(results_frame, bg=Theme.BG_DARK)
+        # Scrollable results table
+        results_container = tk.Frame(results_frame, bg=Theme.BG_DARK)
+        results_container.pack(fill=tk.X, pady=(5, 0))
+        
+        self.results_body = tk.Frame(results_container, bg=Theme.BG_DARK)
         self.results_body.pack(fill=tk.X)
-        self.avg_label = tk.Label(results_frame, text="", font=Theme.FONT,
-                                  bg=Theme.BG_SECONDARY, fg=Theme.SUCCESS)
-        self.avg_label.pack(anchor='w', pady=8)
 
     def add_process(self):
         try:
@@ -288,9 +338,10 @@ class CPUSchedulingGUI:
         canvas_width = self.gantt_canvas.winfo_width() - 40 or 900
         total_time = gantt[-1][2]
         scale = canvas_width / total_time if total_time > 0 else 1
-        x = 20
-        y = 30
-        height = 60
+        x_start = 20
+        x = x_start
+        y = 20
+        height = 50
 
         colors = ['#00d4aa', '#3fb950', '#d29922', '#f85149', '#a371f7', '#79c0ff']
 
@@ -300,23 +351,51 @@ class CPUSchedulingGUI:
                 color = Theme.BG_TERTIARY
                 self.gantt_canvas.create_rectangle(x, y, x + width, y + height,
                                                    fill=color, outline=Theme.BORDER)
+                # Show process ID only
                 self.gantt_canvas.create_text(x + width/2, y + height/2,
-                                              text="IDLE", font=Theme.FONT_SMALL, fill=Theme.TEXT_DIM)
+                                              text="IDLE", font=Theme.FONT_SMALL, 
+                                              fill=Theme.TEXT_DIM, justify='center')
             else:
                 color = colors[hash(pid) % len(colors)]
                 self.gantt_canvas.create_rectangle(x, y, x + width, y + height,
                                                    fill=color, outline=Theme.BORDER)
+                # Show process ID only
                 self.gantt_canvas.create_text(x + width/2, y + height/2,
-                                              text=pid, font=Theme.FONT_BOLD, fill=Theme.BG_DARK)
-
-            # Time labels
-            self.gantt_canvas.create_text(x, y + height + 10, text=str(start),
-                                          font=Theme.FONT_SMALL, fill=Theme.TEXT_DIM, anchor='n')
+                                              text=pid, font=Theme.FONT_BOLD, 
+                                              fill=Theme.BG_DARK, justify='center')
             x += width
 
-        # Final time label
-        self.gantt_canvas.create_text(x, y + height + 10, text=str(total_time),
-                                      font=Theme.FONT_SMALL, fill=Theme.TEXT_DIM, anchor='n')
+        # Draw timeline ruler below the Gantt chart
+        ruler_y = y + height + 5
+        # Draw horizontal line
+        self.gantt_canvas.create_line(x_start, ruler_y, x_start + canvas_width, ruler_y,
+                                      fill=Theme.TEXT_DIM, width=1)
+        
+        # Calculate tick interval (show every 1, 2, or 5 units based on total time)
+        if total_time <= 20:
+            tick_interval = 1
+        elif total_time <= 50:
+            tick_interval = 2
+        else:
+            tick_interval = 5
+        
+        # Draw ticks and labels
+        for t in range(0, total_time + 1, tick_interval):
+            tick_x = x_start + t * scale
+            # Draw tick mark
+            self.gantt_canvas.create_line(tick_x, ruler_y, tick_x, ruler_y + 8,
+                                          fill=Theme.TEXT_DIM, width=1)
+            # Draw time label
+            self.gantt_canvas.create_text(tick_x, ruler_y + 12, text=str(t),
+                                          font=Theme.FONT_SMALL, fill=Theme.TEXT_DIM, anchor='n')
+        
+        # Always draw the final time if it's not on interval
+        if total_time % tick_interval != 0:
+            final_x = x_start + total_time * scale
+            self.gantt_canvas.create_line(final_x, ruler_y, final_x, ruler_y + 8,
+                                          fill=Theme.ACCENT, width=1)
+            self.gantt_canvas.create_text(final_x, ruler_y + 12, text=str(total_time),
+                                          font=Theme.FONT_SMALL, fill=Theme.ACCENT, anchor='n')
 
     def display_results(self, processes):
         for widget in self.results_body.winfo_children():

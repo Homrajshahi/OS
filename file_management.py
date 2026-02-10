@@ -3,7 +3,7 @@ File Management Module
 Implements Contiguous, Linked, and Indexed file allocation methods with visualization
 """
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 from theme import Theme
 import random
 
@@ -141,15 +141,58 @@ class FileManagementGUI:
         self.setup_ui()
 
     def setup_ui(self):
-        main = tk.Frame(self.parent, bg=Theme.BG_DARK)
-        main.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Outer container for scrolling
+        outer = tk.Frame(self.parent, bg=Theme.BG_DARK)
+        outer.pack(fill=tk.BOTH, expand=True)
+        
+        # Scrollable canvas (no visible scrollbar)
+        self.scroll_canvas = tk.Canvas(outer, bg=Theme.BG_DARK, highlightthickness=0)
+        self.scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Main content frame inside canvas
+        main = tk.Frame(self.scroll_canvas, bg=Theme.BG_DARK)
+        self.scroll_canvas.create_window((0, 0), window=main, anchor="nw", tags="main_frame")
+        
+        # Bind mouse wheel scrolling
+        def on_mousewheel(event):
+            self.scroll_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        def on_scroll_up(event):
+            self.scroll_canvas.yview_scroll(-1, "units")
+        def on_scroll_down(event):
+            self.scroll_canvas.yview_scroll(1, "units")
+        
+        # Bind to canvas and all children
+        self.scroll_canvas.bind("<MouseWheel>", on_mousewheel)
+        self.scroll_canvas.bind("<Button-4>", on_scroll_up)
+        self.scroll_canvas.bind("<Button-5>", on_scroll_down)
+        
+        def bind_scroll_to_children(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            widget.bind("<Button-4>", on_scroll_up)
+            widget.bind("<Button-5>", on_scroll_down)
+            for child in widget.winfo_children():
+                bind_scroll_to_children(child)
+        
+        # Update scroll region when content changes
+        def update_scroll_region(event=None):
+            self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
+            # Match canvas width to content
+            self.scroll_canvas.itemconfig("main_frame", width=self.scroll_canvas.winfo_width())
+            bind_scroll_to_children(main)
+        
+        main.bind("<Configure>", update_scroll_region)
+        self.scroll_canvas.bind("<Configure>", lambda e: self.scroll_canvas.itemconfig("main_frame", width=e.width))
+
+        # Add padding inside main
+        content = tk.Frame(main, bg=Theme.BG_DARK)
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
         # Header
-        tk.Label(main, text="File Management", font=Theme.FONT_TITLE,
+        tk.Label(content, text="File Management", font=Theme.FONT_TITLE,
                  bg=Theme.BG_DARK, fg=Theme.ACCENT).pack(anchor='w', pady=(0, 10))
 
         # Input section
-        input_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        input_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         input_frame.pack(fill=tk.X, pady=10)
         
         tk.Label(input_frame, text="─── CREATE FILE ───", font=Theme.FONT_SMALL,
@@ -200,7 +243,7 @@ class FileManagementGUI:
                   command=self.clear_all).pack(side=tk.LEFT, padx=5)
 
         # File list section
-        list_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        list_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         list_frame.pack(fill=tk.X, pady=10)
         
         tk.Label(list_frame, text="─── FILES ───", font=Theme.FONT_SMALL,
@@ -213,34 +256,65 @@ class FileManagementGUI:
 
         self.file_list_canvas = tk.Canvas(list_container, bg=Theme.BG_DARK,
                                           highlightthickness=0, height=120)
-        scrollbar = tk.Scrollbar(list_container, orient="vertical",
-                                command=self.file_list_canvas.yview)
         self.file_list_frame = tk.Frame(self.file_list_canvas, bg=Theme.BG_DARK)
 
         self.file_list_frame.bind("<Configure>",
             lambda e: self.file_list_canvas.configure(scrollregion=self.file_list_canvas.bbox("all")))
 
         self.file_list_canvas.create_window((0, 0), window=self.file_list_frame, anchor="nw")
-        self.file_list_canvas.configure(yscrollcommand=scrollbar.set)
+        
+        # Mouse wheel scrolling only (no visible scrollbar)
+        self.file_list_canvas.bind("<MouseWheel>", lambda e: self.file_list_canvas.yview_scroll(-1*(e.delta//120), "units"))
+        self.file_list_canvas.bind("<Button-4>", lambda e: self.file_list_canvas.yview_scroll(-1, "units"))
+        self.file_list_canvas.bind("<Button-5>", lambda e: self.file_list_canvas.yview_scroll(1, "units"))
 
-        self.file_list_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
-        scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+        self.file_list_canvas.pack(fill=tk.BOTH, expand=True)
 
         self.update_file_list()
 
-        # Disk visualization
-        viz_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
-        viz_frame.pack(fill=tk.BOTH, expand=True, pady=10)
+        # LOGIC VIEW Panel (visual representation of allocation)
+        detail_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=10)
+        detail_frame.pack(fill=tk.X, pady=5)
         
-        tk.Label(viz_frame, text="─── DISK ALLOCATION MAP ───", font=Theme.FONT_SMALL,
-                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
+        detail_header = tk.Frame(detail_frame, bg=Theme.BG_SECONDARY)
+        detail_header.pack(fill=tk.X)
+        tk.Label(detail_header, text="─── LOGIC VIEW ───", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT)
+        tk.Label(detail_header, text="(Visual representation of file allocation)", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT, padx=10)
+        
+        self.detail_canvas = tk.Canvas(detail_frame, height=150, bg=Theme.BG_DARK,
+                                        highlightthickness=0)
+        self.detail_canvas.pack(fill=tk.X, pady=5)
 
-        self.disk_canvas = tk.Canvas(viz_frame, height=250, bg=Theme.BG_DARK,
+        # Disk visualization
+        viz_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=10)
+        viz_frame.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        viz_header = tk.Frame(viz_frame, bg=Theme.BG_SECONDARY)
+        viz_header.pack(fill=tk.X)
+        tk.Label(viz_header, text="─── DISK ALLOCATION MAP ───", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT)
+        
+        # Legend
+        legend = tk.Frame(viz_header, bg=Theme.BG_SECONDARY)
+        legend.pack(side=tk.RIGHT)
+        tk.Label(legend, text="Legend:", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT, padx=(0, 5))
+        tk.Label(legend, text="I# = Index Block", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.ACCENT).pack(side=tk.LEFT, padx=5)
+        tk.Label(legend, text="F# = File Data", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.SUCCESS).pack(side=tk.LEFT, padx=5)
+
+        self.disk_canvas = tk.Canvas(viz_frame, height=160, bg=Theme.BG_DARK,
                                      highlightthickness=0)
-        self.disk_canvas.pack(fill=tk.BOTH, expand=True, pady=10)
+        self.disk_canvas.pack(fill=tk.BOTH, expand=True, pady=5)
+        
+        # Selected file for detail view
+        self.selected_file_id = None
 
         # Stats section
-        stats_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        stats_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=8)
         stats_frame.pack(fill=tk.X)
         
         tk.Label(stats_frame, text="─── STATISTICS ───", font=Theme.FONT_SMALL,
@@ -367,7 +441,7 @@ class FileManagementGUI:
         self.disk_canvas.delete("all")
         
         canvas_width = self.disk_canvas.winfo_width() - 40 or 900
-        canvas_height = self.disk_canvas.winfo_height() - 40 or 210
+        canvas_height = self.disk_canvas.winfo_height() - 40 or 140
         
         blocks_per_row = 10
         rows = (self.simulator.disk_size + blocks_per_row - 1) // blocks_per_row
@@ -378,7 +452,7 @@ class FileManagementGUI:
         colors = ['#00d4aa', '#3fb950', '#d29922', '#f85149', '#a371f7', '#79c0ff']
         
         x_offset = 20
-        y_offset = 20
+        y_offset = 10
         
         for i in range(self.simulator.disk_size):
             row = i // blocks_per_row
@@ -404,7 +478,7 @@ class FileManagementGUI:
                 else:
                     text = f"F{block.file_id}"
             
-            # Draw block
+            # Draw block (no arrows - clean visualization)
             self.disk_canvas.create_rectangle(
                 x, y, x + block_width - 2, y + block_height - 2,
                 fill=fill_color, outline=Theme.BORDER, width=1
@@ -415,20 +489,173 @@ class FileManagementGUI:
                 x + block_width/2 - 1, y + block_height/2 - 1,
                 text=text, font=Theme.FONT_SMALL, fill=text_color
             )
+        
+        # Draw allocation structure for all files
+        self.draw_all_allocation_details()
+
+    def draw_all_allocation_details(self):
+        """Draw visual allocation structures with boxes and arrows"""
+        self.detail_canvas.delete("all")
+        
+        if not self.simulator.files:
+            self.detail_canvas.create_text(
+                400, 75, text="No files created - allocation logic view will appear here",
+                font=Theme.FONT_SMALL, fill=Theme.TEXT_DIM
+            )
+            return
+        
+        colors = ['#00d4aa', '#3fb950', '#d29922', '#f85149', '#a371f7', '#79c0ff']
+        y_offset = 20
+        row_height = 45
+        box_w, box_h = 32, 28
+        
+        for file_obj in self.simulator.files:
+            color = colors[(file_obj.file_id - 1) % len(colors)]
+            x = 15
+            cy = y_offset + box_h // 2  # center y
             
-            # Draw link arrows for linked allocation
-            if block and block.next_block is not None:
-                next_row = block.next_block // blocks_per_row
-                next_col = block.next_block % blocks_per_row
-                next_x = x_offset + next_col * block_width + block_width/2
-                next_y = y_offset + next_row * block_height + block_height/2
-                curr_x = x + block_width/2
-                curr_y = y + block_height/2
-                
-                self.disk_canvas.create_line(
-                    curr_x, curr_y, next_x, next_y,
-                    arrow=tk.LAST, fill=Theme.WARNING, width=2
+            # File name label
+            self.detail_canvas.create_text(
+                x, cy, anchor='w', font=('Consolas', 10, 'bold'), fill=color,
+                text=f"{file_obj.name}"
+            )
+            x += 75
+            
+            # Allocation type badge
+            self.detail_canvas.create_text(
+                x, cy, anchor='w', font=('Consolas', 9), fill=Theme.TEXT_DIM,
+                text=f"({file_obj.allocation_type})"
+            )
+            x += 90
+            
+            if file_obj.allocation_type == "Contiguous":
+                # Draw: [0] → [1] → [2] (sequential)
+                for i, block in enumerate(file_obj.blocks):
+                    # Box
+                    self.detail_canvas.create_rectangle(
+                        x, y_offset, x + box_w, y_offset + box_h,
+                        fill=Theme.BG_TERTIARY, outline=color, width=2
+                    )
+                    self.detail_canvas.create_text(
+                        x + box_w//2, cy, text=str(block), 
+                        font=('Consolas', 10), fill=color
+                    )
+                    x += box_w
+                    # Arrow between blocks
+                    if i < len(file_obj.blocks) - 1:
+                        self.detail_canvas.create_line(
+                            x + 2, cy, x + 18, cy,
+                            fill=color, width=2, arrow=tk.LAST, arrowshape=(5, 6, 2)
+                        )
+                        x += 22
+                # Label
+                self.detail_canvas.create_text(
+                    x + 15, cy, anchor='w', font=('Consolas', 9), 
+                    fill=Theme.TEXT_DIM, text="sequential"
                 )
+                
+            elif file_obj.allocation_type == "Linked":
+                # Draw: HEAD → [12] → [27] → [5] → NULL
+                self.detail_canvas.create_text(
+                    x, cy, anchor='w', font=('Consolas', 9, 'bold'), fill=color, text="HEAD"
+                )
+                x += 45
+                
+                for i, block in enumerate(file_obj.blocks):
+                    # Arrow
+                    self.detail_canvas.create_line(
+                        x, cy, x + 15, cy,
+                        fill=color, width=2, arrow=tk.LAST, arrowshape=(5, 6, 2)
+                    )
+                    x += 18
+                    # Box
+                    self.detail_canvas.create_rectangle(
+                        x, y_offset, x + box_w, y_offset + box_h,
+                        fill=Theme.BG_TERTIARY, outline=color, width=2
+                    )
+                    self.detail_canvas.create_text(
+                        x + box_w//2, cy, text=str(block), 
+                        font=('Consolas', 10), fill=color
+                    )
+                    x += box_w + 3
+                
+                # Final arrow to NULL
+                self.detail_canvas.create_line(
+                    x, cy, x + 15, cy,
+                    fill=color, width=2, arrow=tk.LAST, arrowshape=(5, 6, 2)
+                )
+                x += 18
+                self.detail_canvas.create_text(
+                    x, cy, anchor='w', font=('Consolas', 9, 'bold'), 
+                    fill=Theme.ERROR, text="NULL"
+                )
+                
+            else:  # Indexed
+                # Draw: [I:10] ──┬── [23] [29] [38] [43]
+                idx_box_w = 40
+                self.detail_canvas.create_rectangle(
+                    x, y_offset, x + idx_box_w, y_offset + box_h,
+                    fill=color, outline=color, width=2
+                )
+                self.detail_canvas.create_text(
+                    x + idx_box_w//2, cy, text=f"I:{file_obj.index_block}", 
+                    font=('Consolas', 9, 'bold'), fill=Theme.BG_DARK
+                )
+                idx_center_x = x + idx_box_w
+                x += idx_box_w + 15
+                
+                # Draw arrow from index
+                self.detail_canvas.create_line(
+                    idx_center_x, cy, x, cy,
+                    fill=color, width=2, arrow=tk.LAST, arrowshape=(5, 6, 2)
+                )
+                x += 5
+                
+                # Data blocks in a row
+                for i, block in enumerate(file_obj.blocks):
+                    self.detail_canvas.create_rectangle(
+                        x, y_offset, x + box_w, y_offset + box_h,
+                        fill=Theme.BG_TERTIARY, outline=color, width=2
+                    )
+                    self.detail_canvas.create_text(
+                        x + box_w//2, cy, text=str(block), 
+                        font=('Consolas', 10), fill=color
+                    )
+                    x += box_w + 5
+            
+            y_offset += row_height
+        
+        # Dynamically resize canvas height to fit content
+        total_height = max(150, y_offset + 10)
+        self.detail_canvas.configure(height=total_height)
+
+    def draw_box(self, x, y, text, color, is_label=False, is_index=False, small=False):
+        """Draw a box with text"""
+        if is_label:
+            self.detail_canvas.create_text(
+                x + 20, y + 15, text=text, font=Theme.FONT_SMALL, fill=color
+            )
+        else:
+            width = 30 if small else 35
+            height = 22 if small else 30
+            # Box
+            self.detail_canvas.create_rectangle(
+                x, y, x + width, y + height,
+                fill=Theme.BG_TERTIARY if not is_index else color,
+                outline=color, width=2
+            )
+            # Text
+            text_color = Theme.BG_DARK if is_index else color
+            self.detail_canvas.create_text(
+                x + width/2, y + height/2, text=text, 
+                font=Theme.FONT_SMALL, fill=text_color
+            )
+
+    def draw_arrow(self, x1, y1, x2, y2, color):
+        """Draw an arrow between two points"""
+        self.detail_canvas.create_line(
+            x1, y1, x2, y2, fill=color, width=2, arrow=tk.LAST, arrowshape=(6, 8, 3)
+        )
 
     def update_stats(self):
         total_blocks = self.simulator.disk_size

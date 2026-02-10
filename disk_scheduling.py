@@ -4,7 +4,7 @@ Terminal-Inspired Minimal UI
 Implements FCFS, SSTF, SCAN, LOOK, and C-SCAN algorithms
 """
 import tkinter as tk
-from tkinter import messagebox
+from tkinter import ttk, messagebox
 import random
 from theme import Theme  # ← Import shared theme
 
@@ -132,13 +132,53 @@ class DiskSchedulingGUI:
         self.setup_gui()
 
     def setup_gui(self):
-        main = tk.Frame(self.parent, bg=Theme.BG_DARK)
-        main.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
+        # Outer container for scrolling
+        outer = tk.Frame(self.parent, bg=Theme.BG_DARK)
+        outer.pack(fill=tk.BOTH, expand=True)
+        
+        # Scrollable canvas (no visible scrollbar)
+        self.scroll_canvas = tk.Canvas(outer, bg=Theme.BG_DARK, highlightthickness=0)
+        self.scroll_canvas.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        
+        # Main content frame inside canvas
+        main = tk.Frame(self.scroll_canvas, bg=Theme.BG_DARK)
+        self.scroll_canvas.create_window((0, 0), window=main, anchor="nw", tags="main_frame")
+        
+        # Bind mouse wheel scrolling
+        def on_mousewheel(event):
+            self.scroll_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        def on_scroll_up(event):
+            self.scroll_canvas.yview_scroll(-1, "units")
+        def on_scroll_down(event):
+            self.scroll_canvas.yview_scroll(1, "units")
+        
+        self.scroll_canvas.bind("<MouseWheel>", on_mousewheel)
+        self.scroll_canvas.bind("<Button-4>", on_scroll_up)
+        self.scroll_canvas.bind("<Button-5>", on_scroll_down)
+        
+        def bind_scroll_to_children(widget):
+            widget.bind("<MouseWheel>", on_mousewheel)
+            widget.bind("<Button-4>", on_scroll_up)
+            widget.bind("<Button-5>", on_scroll_down)
+            for child in widget.winfo_children():
+                bind_scroll_to_children(child)
+        
+        def update_scroll_region(event=None):
+            self.scroll_canvas.configure(scrollregion=self.scroll_canvas.bbox("all"))
+            self.scroll_canvas.itemconfig("main_frame", width=self.scroll_canvas.winfo_width())
+            bind_scroll_to_children(main)
+        
+        main.bind("<Configure>", update_scroll_region)
+        self.scroll_canvas.bind("<Configure>", lambda e: self.scroll_canvas.itemconfig("main_frame", width=e.width))
+
+        # Add padding inside main
+        content = tk.Frame(main, bg=Theme.BG_DARK)
+        content.pack(fill=tk.BOTH, expand=True, padx=20, pady=20)
 
         # ─────────────────────────────────────────────
         # HEADER
         # ─────────────────────────────────────────────
-        header = tk.Frame(main, bg=Theme.BG_DARK)
+        header = tk.Frame(content, bg=Theme.BG_DARK)
         header.pack(fill=tk.X, pady=(0, 15))
         tk.Label(header, text="Disk Scheduling", font=Theme.FONT_TITLE,
                  bg=Theme.BG_DARK, fg=Theme.ACCENT).pack(side=tk.LEFT)
@@ -148,7 +188,7 @@ class DiskSchedulingGUI:
         # ─────────────────────────────────────────────
         # INPUT SECTION
         # ─────────────────────────────────────────────
-        input_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        input_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         input_frame.pack(fill=tk.X, pady=(0, 12))
         tk.Label(input_frame, text="─── PARAMETERS ───", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
@@ -213,7 +253,7 @@ class DiskSchedulingGUI:
         # ─────────────────────────────────────────────
         # REQUEST QUEUE
         # ─────────────────────────────────────────────
-        queue_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=10)
+        queue_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=10)
         queue_frame.pack(fill=tk.X, pady=(0, 12))
         tk.Label(queue_frame, text="─── REQUEST QUEUE ───", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
@@ -226,7 +266,7 @@ class DiskSchedulingGUI:
         # ─────────────────────────────────────────────
         # ALGORITHM SELECTION
         # ─────────────────────────────────────────────
-        algo_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        algo_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         algo_frame.pack(fill=tk.X, pady=(0, 12))
         tk.Label(algo_frame, text="─── ALGORITHM ───", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
@@ -252,18 +292,32 @@ class DiskSchedulingGUI:
         # ─────────────────────────────────────────────
         # VISUALIZATION
         # ─────────────────────────────────────────────
-        viz_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
-        viz_frame.pack(fill=tk.BOTH, expand=True, pady=(0, 12))
-        tk.Label(viz_frame, text="─── HEAD MOVEMENT ───", font=Theme.FONT_SMALL,
-                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
+        viz_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        viz_frame.pack(fill=tk.X, pady=(0, 12))
+        
+        viz_header = tk.Frame(viz_frame, bg=Theme.BG_SECONDARY)
+        viz_header.pack(fill=tk.X)
+        tk.Label(viz_header, text="─── HEAD MOVEMENT ───", font=Theme.FONT_SMALL,
+                 bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(side=tk.LEFT)
+        expand_btn = tk.Label(viz_header, text="⛶ Click graph to expand", font=Theme.FONT_SMALL,
+                              bg=Theme.BG_SECONDARY, fg=Theme.ACCENT, cursor='hand2')
+        expand_btn.pack(side=tk.RIGHT)
+        expand_btn.bind("<Button-1>", lambda e: self.open_expanded_view())
+        
         self.disk_canvas = tk.Canvas(viz_frame, height=200,
-                                     bg=Theme.BG_DARK, highlightthickness=0)
+                                     bg=Theme.BG_DARK, highlightthickness=0,
+                                     cursor='hand2')
         self.disk_canvas.pack(fill=tk.BOTH, expand=True, pady=10)
+        self.disk_canvas.bind("<Button-1>", lambda e: self.open_expanded_view())
+        
+        # Store current sequence for expanded view
+        self.current_sequence = None
+        self.current_algo = None
 
         # ─────────────────────────────────────────────
         # RESULTS
         # ─────────────────────────────────────────────
-        results_frame = tk.Frame(main, bg=Theme.BG_SECONDARY, padx=15, pady=12)
+        results_frame = tk.Frame(content, bg=Theme.BG_SECONDARY, padx=15, pady=12)
         results_frame.pack(fill=tk.X)
         tk.Label(results_frame, text="─── RESULTS ───", font=Theme.FONT_SMALL,
                  bg=Theme.BG_SECONDARY, fg=Theme.TEXT_DIM).pack(anchor='w')
@@ -348,6 +402,8 @@ class DiskSchedulingGUI:
         else:
             seq, total = DiskScheduler.c_scan(self.requests, head, disk_size, direction)
 
+        self.current_sequence = seq
+        self.current_algo = algo
         self.draw_movement(seq, algo)
         self.display_results(seq, total)
 
@@ -420,6 +476,145 @@ class DiskSchedulingGUI:
         self.total_label.config(text=f"Total Seek: {total} cylinders")
         avg = total / (len(sequence) - 1) if len(sequence) > 1 else 0
         self.avg_label.config(text=f"Average: {avg:.2f} cyl/request")
+
+    def open_expanded_view(self):
+        if not self.current_sequence:
+            messagebox.showinfo("Info", "Run a simulation first to see expanded view")
+            return
+        
+        # Create expanded window
+        win = tk.Toplevel(self.parent)
+        win.title(f"Disk Scheduling - {self.current_algo} (Expanded View)")
+        win.geometry("1200x800")
+        win.configure(bg=Theme.BG_DARK)
+        
+        # Header
+        header = tk.Frame(win, bg=Theme.BG_DARK)
+        header.pack(fill=tk.X, padx=20, pady=15)
+        tk.Label(header, text=f"Head Movement Visualization", font=Theme.FONT_TITLE,
+                 bg=Theme.BG_DARK, fg=Theme.ACCENT).pack(side=tk.LEFT)
+        tk.Label(header, text=f"  Algorithm: {self.current_algo}", font=Theme.FONT,
+                 bg=Theme.BG_DARK, fg=Theme.TEXT_DIM).pack(side=tk.LEFT, padx=10)
+        tk.Button(header, text="✕ Close", font=Theme.FONT,
+                  bg=Theme.BG_TERTIARY, fg=Theme.ERROR, bd=0,
+                  padx=15, pady=5, cursor='hand2',
+                  command=win.destroy).pack(side=tk.RIGHT)
+        
+        # Scrollable canvas frame
+        canvas_frame = tk.Frame(win, bg=Theme.BG_SECONDARY, padx=20, pady=20)
+        canvas_frame.pack(fill=tk.BOTH, expand=True, padx=20, pady=(0, 10))
+        
+        # Calculate required height based on sequence length
+        required_height = max(500, len(self.current_sequence) * 50 + 100)
+        
+        expanded_canvas = tk.Canvas(canvas_frame, bg=Theme.BG_DARK, highlightthickness=0)
+        expanded_canvas.pack(fill=tk.BOTH, expand=True)
+        
+        # Mouse wheel scrolling only (no visible scrollbar)
+        def on_mousewheel(event):
+            expanded_canvas.yview_scroll(-1 * (event.delta // 120), "units")
+        expanded_canvas.bind("<MouseWheel>", on_mousewheel)
+        expanded_canvas.bind("<Button-4>", lambda e: expanded_canvas.yview_scroll(-1, "units"))
+        expanded_canvas.bind("<Button-5>", lambda e: expanded_canvas.yview_scroll(1, "units"))
+        
+        # Wait for window to render, then draw
+        win.update_idletasks()
+        self.draw_expanded_movement(expanded_canvas, self.current_sequence, self.current_algo, required_height)
+        
+        # Set scroll region
+        expanded_canvas.configure(scrollregion=(0, 0, 1100, required_height))
+        
+        # Enable mouse wheel scrolling
+        def _on_mousewheel(event):
+            expanded_canvas.yview_scroll(int(-1*(event.delta/120)), "units")
+        expanded_canvas.bind_all("<MouseWheel>", _on_mousewheel)
+        expanded_canvas.bind_all("<Button-4>", lambda e: expanded_canvas.yview_scroll(-1, "units"))
+        expanded_canvas.bind_all("<Button-5>", lambda e: expanded_canvas.yview_scroll(1, "units"))
+        
+        # Results summary at bottom
+        results = tk.Frame(win, bg=Theme.BG_SECONDARY, padx=20, pady=15)
+        results.pack(fill=tk.X, padx=20, pady=(0, 20))
+        
+        total_seek = sum(abs(self.current_sequence[i] - self.current_sequence[i-1]) 
+                        for i in range(1, len(self.current_sequence)))
+        avg = total_seek / (len(self.current_sequence) - 1) if len(self.current_sequence) > 1 else 0
+        
+        tk.Label(results, text=f"Seek Sequence: {' → '.join(map(str, self.current_sequence))}",
+                 font=Theme.FONT, bg=Theme.BG_SECONDARY, fg=Theme.TEXT,
+                 wraplength=1100, anchor='w').pack(fill=tk.X, pady=5)
+        
+        stats = tk.Frame(results, bg=Theme.BG_SECONDARY)
+        stats.pack(fill=tk.X, pady=5)
+        tk.Label(stats, text=f"Total Seek: {total_seek} cylinders",
+                 font=Theme.FONT_BOLD, bg=Theme.BG_DARK, fg=Theme.SUCCESS,
+                 padx=15, pady=8).pack(side=tk.LEFT, padx=(0, 10))
+        tk.Label(stats, text=f"Average: {avg:.2f} cyl/request",
+                 font=Theme.FONT, bg=Theme.BG_DARK, fg=Theme.TEXT,
+                 padx=15, pady=8).pack(side=tk.LEFT)
+
+    def draw_expanded_movement(self, canvas, sequence, algo, total_height=500):
+        """Draw movement on the expanded canvas with larger dimensions"""
+        canvas.delete("all")
+        canvas_width = canvas.winfo_width() - 80
+        if canvas_width < 100:
+            canvas_width = 1050
+        
+        scale = canvas_width / self.disk_size
+        y_spacing = 45  # Fixed spacing between each step
+        x_start = 60
+        y_top = 50
+
+        # Draw axis with thicker line
+        canvas.create_line(x_start, y_top, x_start + canvas_width, y_top,
+                           fill=Theme.BORDER, width=3)
+
+        # Draw ticks with larger font
+        for i in range(0, self.disk_size + 1, self.disk_size // 10):
+            x = x_start + i * scale
+            canvas.create_line(x, y_top - 8, x, y_top + 8, fill=Theme.TEXT_DIM, width=2)
+            canvas.create_text(x, y_top - 20, text=str(i),
+                               font=('Consolas', 11), fill=Theme.TEXT_DIM)
+
+        colors = ['#00d4aa', '#3fb950', '#d29922', '#f85149', '#a371f7',
+                  '#79c0ff', '#ff7b72', '#7ee787', '#ffa657', '#d2a8ff']
+        prev_x = x_start + sequence[0] * scale
+        prev_y = y_top + 25
+
+        # Start marker (larger)
+        canvas.create_oval(prev_x - 10, prev_y - 10, prev_x + 10, prev_y + 10,
+                           fill=Theme.SUCCESS, outline='')
+        canvas.create_text(prev_x, prev_y + 25, text=f"Start: {sequence[0]}",
+                           font=('Consolas', 11, 'bold'), fill=Theme.SUCCESS)
+
+        # Draw path with thicker lines
+        for i in range(1, len(sequence)):
+            curr_x = x_start + sequence[i] * scale
+            curr_y = prev_y + y_spacing
+            color = colors[(i - 1) % len(colors)]
+
+            # Line (thicker)
+            canvas.create_line(prev_x, prev_y, curr_x, curr_y,
+                               fill=color, width=3, arrow=tk.LAST, arrowshape=(12, 15, 6))
+
+            # Point (larger)
+            is_request = sequence[i] in self.requests
+            point_color = Theme.ACCENT if is_request else Theme.TEXT_DIM
+            point_size = 8 if is_request else 6
+            canvas.create_oval(curr_x - point_size, curr_y - point_size,
+                               curr_x + point_size, curr_y + point_size,
+                               fill=point_color, outline='')
+
+            # Label (larger font)
+            canvas.create_text(curr_x + 30, curr_y, text=str(sequence[i]),
+                               font=('Consolas', 11), fill=Theme.TEXT)
+
+            prev_x = curr_x
+            prev_y = curr_y
+
+        # Legend (at bottom of drawing, after last point)
+        canvas.create_text(x_start + canvas_width - 80, prev_y + 40,
+                           text=f"Algorithm: {algo}",
+                           font=('Consolas', 14, 'bold'), fill=Theme.ACCENT)
 
     def compare_all(self):
         if not self.requests:

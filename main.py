@@ -18,6 +18,10 @@ class MiniOSSimulator:
         self.root.configure(bg=Theme.BG_DARK)
         self.root.minsize(900, 600)
         self.current_module = None
+        
+        # Setup themed scrollbars
+        Theme.setup_scrollbar_style(self.root)
+        
         self.setup_gui()
 
     def setup_gui(self):
